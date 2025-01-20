@@ -14,9 +14,10 @@ app.use(
     })
 );
 
-dbConnect()
+// dbConnect()
 
 app.get('/test', (req, res) => {
+    console.log("hello")
     res.status(200).json({ message: 'Server is running' })
 })
 
