@@ -16,6 +16,10 @@ app.use(
 
 dbConnect()
 
+app.get('/test', (req, res) => {
+    res.status(200).json({ message: 'Server is running' })
+})
+
 
 app.listen(process.env.SERVER_PORT, console.log(`Server is running on port ${process.env.SERVER_PORT}`))
 
