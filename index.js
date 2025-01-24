@@ -4,7 +4,7 @@ const app = express();
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dbConnect=require('./config/database')
-
+const userRoutes=require('./routes/User.routes')
 
 
 app.use(bodyParser.json())
@@ -14,8 +14,8 @@ app.use(
     })
 );
 
-// dbConnect()
-
+app.use("/api/users/",userRoutes)
+dbConnect()
 app.get('/test', (req, res) => {
     console.log("hello")
     res.status(200).json({ message: 'Server is running' })

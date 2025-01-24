@@ -4,38 +4,38 @@ const bcrypt = require('bcryptjs')
 const WorkoutModels = require('../models/Workout.models')
 
 const createUser = async (req, res) => {
-    if (!req.body.email || !req.body.password || !req.body.firstname || !req.body.confirmPassword || !req.body.lastname) {
+    if (!req.body.email || !req.body.password || !req.body.firstname || !req.body.confirmPassword ) {
         return res.status(400).json({
             message: 'Please enter email and password'
         })
     }
-    if (confirmPassword !== password) {
+    if (req.body.confirmPassword !== req.body.password) {
         return res.status(400).json({
             message: 'Passwords do not match'
         })
     }
 
     try {
-        const emailExists = await User.findOne({ email: req.body.email }).trim()
+        const emailExists = await User.findOne({ email: req.body.email })
         if (emailExists) {
             return res.status(400).json({
                 message: 'Email already exists'
             })
         }
         const randomUserName = Math.random().toString(36).substring(7)
-        const hashedPassword = await bcrypt.hash(req.body.password, process.env.SALT)
+        const hashedPassword = await bcrypt.hash(req.body.password, 10)
         const user = await new User({
             firstname: req.body.firstname.trim(),
             lastname: req.body.lastname.trim(),
             email: req.body.email.trim(),
             password: hashedPassword,
-            username: firstname.trim() + "_" + randomUserName
+            username: req.body.firstname.trim() + "_" + randomUserName
         })
         const savedUser = await user.save()
         console.log(savedUser)
         savedUser.password = undefined
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "48h" })
-        return res.status(201).json({ user, token, message: 'User created successfully' })
+        const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "48h" })
+        return res.status(201).json({ user:savedUser, token, message: 'User created successfully' })
     } catch (error) {
         console.error("Error in User.controller.js : createUser() \n", error)
         return res.status(500).json({
@@ -64,7 +64,7 @@ const loginUser = async (req, res) => {
             })
         }
         user.password = undefined
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "48h" })
+        const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "48h" })
         return res.status(200).json({ user, token, message: 'User logged in successfully' })
     } catch (error) {
         console.error("Error in User.controller.js : loginUser() \n", error)
@@ -85,16 +85,34 @@ const getUserProfile = async (req, res) => {
 
 async function updateUser(req, res) {
     const userId = req.user._id;
-    const updates = req.body;
+    let updates ={
+        'username': req.body.username || '',
+        'firstName': req.body.firstName || '',
+        'lastName': req.body.lastName || '',
+        'email': req.body.email || '',
+        'password': req.body.password || '',
+        'weight': req.body.weight || '',
+        'height': req.body.height || '',
+        'blogs': req.body.blogs || '',
+        'sex': req.body.sex||'',
+        'age': req.body.age || ''
+    };
 
     try {
-        const allowedUpdates = ['username', 'firstname', 'lastname', 'email', 'password', 'weight', 'height', 'blogs', 'sex', 'age'];
-        const isValidOperation = Object.keys(updates).every(update => allowedUpdates.includes(update));
-
-        if (!isValidOperation) {
+        const allowedUpdates = ['username', 'firstName', 'lastName', 'email', 'password', 'weight', 'height', 'blogs', 'sex', 'age'];
+        for(let key in updates){
+            // console.log(key);
+            if(updates[key].length==0){
+                delete updates[key];
+            }
+        }
+        console.log(updates);
+        console.log(req.body);
+        if(Object.keys(updates).length===0){
             return res.status(400).json({ error: 'Invalid updates!' });
         }
-        if (updates.password) updates.password = bcrypt.hash(updates.password, process.env.SALT)
+
+        if (updates.password) updates.password =await bcrypt.hash(updates.password, 10)
 
         const user = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true });
 
@@ -142,7 +160,7 @@ const startWorkout = async (req, res) => {
 const updateWorkoutStatus = async (req, res) => {
     const userId = req.user._id;
     const workoutId = req.body.workoutId;
-    const status = req.body.status;
+    // const status = req.body.status;
     try {
         let updateWorkoutStatus;
         const currentDaysCompleted = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId }, { 'inprogressWorkouts.$': 1 });
@@ -206,5 +224,8 @@ const updateWorkoutStatus = async (req, res) => {
 module.exports = {
     createUser,
     loginUser,
-    getUserProfile
+    getUserProfile,
+    updateUser,
+    updateWorkoutStatus,
+    startWorkout
 }
