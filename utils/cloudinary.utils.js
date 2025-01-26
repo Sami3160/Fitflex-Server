@@ -1,27 +1,29 @@
 const cloudinary = require('../config/cloudinary.config')
-
+const fs=require('fs')
 const uploadOnCloudinary = async (localFilePath, folder) => {
     try {
+        let response;
         if (!localFilePath) return null;
         if (folder === "workout") {
-            const response = await cloudinary.uploader.upload(localFilePath, {
+            response = await cloudinary.uploader.upload(localFilePath, {
                 resource_type: "auto",
                 folder,
                 transformation: [{ width: 700, height: 400, crop: "fill" }],
             });
         }else if(folder==="exercise"){
-            const response = await cloudinary.uploader.upload(localFilePath, {
+            response = await cloudinary.uploader.upload(localFilePath, {
                 resource_type: "auto",
                 folder,
                 transformation: [{ width: 700, height: 550, crop: "fill" }],
             });
         }else {
-            const response = await cloudinary.uploader.upload(localFilePath, {
+            response = await cloudinary.uploader.upload(localFilePath, {
                 resource_type: "auto",
                 folder,
                 transformation: [{ width: 400, height: 400, crop: "fill" }],
             });
         }
+        console.log("Uploaded to cloudinary:", response);
         fs.unlinkSync(localFilePath);
         return {
             public_id: response.public_id,
