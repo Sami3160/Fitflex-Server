@@ -5,7 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const dbConnect=require('./config/database')
 const userRoutes=require('./routes/User.routes')
-
+const workoutRoutes=require('./routes/Workouts.routes')
 
 app.use(bodyParser.json())
 app.use(
@@ -14,8 +14,9 @@ app.use(
     })
 );
 
-app.use("/api/users/",userRoutes)
 dbConnect()
+app.use("/api/users/",userRoutes)
+app.use("/api/workouts/",workoutRoutes)
 app.get('/test', (req, res) => {
     console.log("hello")
     res.status(200).json({ message: 'Server is running' })
