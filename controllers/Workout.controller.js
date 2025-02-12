@@ -7,10 +7,10 @@ const getWorkoutsGroupByCategory = async (req, res) => {
         const workouts = await Workout.find()
         let workoutsGroupByCategory = {}
         workouts.forEach(workout => {
-            if (workoutsGroupByCategory[workout.categoryName]) {
-                workoutsGroupByCategory[workout.categoryName].push(workout)
+            if (workoutsGroupByCategory[workout.type]) {
+                workoutsGroupByCategory[workout.type].push(workout)
             } else {
-                workoutsGroupByCategory[workout.categoryName] = [workout]
+                workoutsGroupByCategory[workout.type] = [workout]
             }
         })
         return res.status(200).json({
