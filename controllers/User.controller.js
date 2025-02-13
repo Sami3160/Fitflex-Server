@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs')
 const WorkoutModels = require('../models/Workout.models')
 
 const createUser = async (req, res) => {
-    if (!req.body.email || !req.body.password || !req.body.firstname || !req.body.confirmPassword ) {
+    if (!req.body.email || !req.body.password || !req.body.firstname || !req.body.confirmPassword) {
         return res.status(400).json({
             message: 'Please enter email and password'
         })
@@ -35,7 +35,7 @@ const createUser = async (req, res) => {
         console.log(savedUser)
         savedUser.password = undefined
         const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "48h" })
-        return res.status(201).json({ user:savedUser, token, message: 'User created successfully' })
+        return res.status(201).json({ user: savedUser, token, message: 'User created successfully' })
     } catch (error) {
         console.error("Error in User.controller.js : createUser() \n", error)
         return res.status(500).json({
@@ -86,7 +86,7 @@ const getUserProfile = async (req, res) => {
 
 async function updateUser(req, res) {
     const userId = req.user._id;
-    let updates ={
+    let updates = {
         'username': req.body.username || '',
         'firstName': req.body.firstName || '',
         'lastName': req.body.lastName || '',
@@ -95,25 +95,25 @@ async function updateUser(req, res) {
         'weight': req.body.weight || '',
         'height': req.body.height || '',
         'blogs': req.body.blogs || '',
-        'sex': req.body.sex||'',
+        'sex': req.body.sex || '',
         'age': req.body.age || ''
     };
 
     try {
         const allowedUpdates = ['username', 'firstName', 'lastName', 'email', 'password', 'weight', 'height', 'blogs', 'sex', 'age'];
-        for(let key in updates){
+        for (let key in updates) {
             // console.log(key);
-            if(updates[key].length==0){
+            if (updates[key].length == 0) {
                 delete updates[key];
             }
         }
         console.log(updates);
         console.log(req.body);
-        if(Object.keys(updates).length===0){
+        if (Object.keys(updates).length === 0) {
             return res.status(400).json({ error: 'Invalid updates!' });
         }
 
-        if (updates.password) updates.password =await bcrypt.hash(updates.password, 10)
+        if (updates.password) updates.password = await bcrypt.hash(updates.password, 10)
 
         const user = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true });
 
@@ -133,7 +133,10 @@ const startWorkout = async (req, res) => {
     const workoutId = req.body.workoutId;
     try {
 
-
+        const workoutExists = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId });
+        if (workoutExists) {
+            return res.status(400).json({ message: 'Workout already started!' });
+        }
         const updateProgressWorkouts = await User.findByIdAndUpdate(
             userId,
             {
@@ -141,7 +144,7 @@ const startWorkout = async (req, res) => {
                     inprogressWorkouts: {
                         workoutId: workoutId,
                         lastDoneAt: Date.now(),
-                        daysCompleted: 1
+                        daysCompleted: 0
                     }
                 }
             },
@@ -165,11 +168,11 @@ const updateWorkoutStatus = async (req, res) => {
     try {
         let updateWorkoutStatus;
         const currentDaysCompleted = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId }, { 'inprogressWorkouts.$': 1 });
-        const totalDays= await WorkoutModels.findById(workoutId).select('duration');
-        
-        if (currentDaysCompleted.daysCompleted+1===totalDays) {
+        const totalDays = await WorkoutModels.findById(workoutId).select('duration');
+
+        if (currentDaysCompleted.daysCompleted + 1 === totalDays) {
             updateWorkoutStatus = await User.findByIdAndUpdate(
-                {_id:userId},
+                { _id: userId },
                 {
                     $push: {
                         completedWorkouts: {
@@ -183,9 +186,9 @@ const updateWorkoutStatus = async (req, res) => {
                     runValidators: true
                 }
             )
-            if(!updateWorkoutStatus) return res.status(404).json({message: 'User not found!'})
+            if (!updateWorkoutStatus) return res.status(404).json({ message: 'User not found!' })
             updateWorkoutStatus = await User.findByIdAndUpdate(
-                {_id:userId},
+                { _id: userId },
                 {
                     $pull: {
                         inprogressWorkouts: {
@@ -198,14 +201,14 @@ const updateWorkoutStatus = async (req, res) => {
                     runValidators: true
                 }
             )
-        }else{
-            const updateProgress=await User.findByIdAndUpdate(
-                {_id:userId, 'inprogressWorkouts.workoutId': workoutId},
+        } else {
+            const updateProgress = await User.findByIdAndUpdate(
+                { _id: userId, 'inprogressWorkouts.workoutId': workoutId },
                 {
                     $inc: {
                         'inprogressWorkouts.$.daysCompleted': 1
                     },
-                    $set:{
+                    $set: {
                         'inprogressWorkouts.$.lastDoneAt': Date.now()
                     }
                 },
@@ -215,7 +218,7 @@ const updateWorkoutStatus = async (req, res) => {
                 }
             )
         }
-        return res.status(200).json(updateWorkoutStatus);
+        return res.status(200).json(updateProgress);
     } catch (error) {
         console.error("Error in User.controller.js : updateWorkoutStatus() \n", error)
         return res.status(400).json({ message: error.message });

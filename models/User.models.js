@@ -36,21 +36,21 @@ const userSchema = new Schema({
     ,
     createdAt: { type: Date, default: Date.now },
     activeDays: [{ type: Date }],
-    completedWorkouts: [{ 
-        type: mongoose.Schema.Types.ObjectId, ref: 'Workout' ,
-        startedAt: { type: Date},
+    completedWorkouts: [{
+        workoutId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workout' },
+        startedAt: { type: Date },
         endedAt: { type: Date, default: Date.now }
     }],
-    inprogressWorkouts: [{ 
-        type: mongoose.Schema.Types.ObjectId, ref: 'Workout',
+    inprogressWorkouts: [{
+        workoutId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workout' },
         startedAt: { type: Date, default: Date.now },
         lastDoneAt: { type: Date, default: Date.now },
         daysCompleted: { type: Number, default: 0 }
-     }],
+    }],
     profileUrl: {
         type: String,
         default: 'https://www.llt.at/wp-content/uploads/2021/11/blank-profile-picture-g77b5d6651-1280-705x705.png'
     }
 })
 
-module.exports=mongoose.model('User',userSchema)
+module.exports = mongoose.model('User', userSchema)
