@@ -28,6 +28,8 @@ const getWorkoutsGroupByCategory = async (req, res) => {
 }
 
 const getOneDayExercise= async (req, res)=>{
+    console.log('ping to getOneDayExercise');
+    
     try {
         const workoutId=req.params.workoutId
         const day=req.params.day
@@ -42,10 +44,17 @@ const getOneDayExercise= async (req, res)=>{
 }
 
 const getOneExercise=async (req, res)=>{
+    console.log('ping to getOneExercise');
+    
     try {
         const id=req.params.id
         !(id) && res.status(400).json({message:"Id is required"})
+        // console.log(id)
         const exercise=await Exercise.findById(id)
+        if(!exercise){
+            return res.status(404).json({message:"Exercise not found"})
+        }
+        console.log(exercise)
         res.status(200).json({message:"Exercise found",data:exercise})
         
     } catch (error) {
