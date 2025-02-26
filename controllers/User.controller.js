@@ -131,6 +131,7 @@ async function updateUser(req, res) {
 const startWorkout = async (req, res) => {
     const userId = req.user._id;
     const workoutId = req.body.workoutId;
+    console.log(userId, workoutId);
     try {
 
         const workoutExists = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId });
@@ -144,7 +145,8 @@ const startWorkout = async (req, res) => {
                     inprogressWorkouts: {
                         workoutId: workoutId,
                         lastDoneAt: Date.now(),
-                        daysCompleted: 0
+                        daysCompleted: 0,
+                        dayProgress: { 1: 0 }
                     }
                 }
             },
@@ -156,18 +158,37 @@ const startWorkout = async (req, res) => {
         return res.status(200).json(updateProgressWorkouts);
     } catch (error) {
         console.error("Error in User.controller.js : startWorkout() \n", error)
-        return res.status(400).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 }
 
 
 const updateWorkoutStatus = async (req, res) => {
     const userId = req.user._id;
+    const score = req.body.score;
     const workoutId = req.body.workoutId;
     // const status = req.body.status;
     try {
         let updateWorkoutStatus;
-        const currentDaysCompleted = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId }, { 'inprogressWorkouts.$': 1 });
+        let currentDaysCompleted = await User.findOne({ _id: userId, 'inprogressWorkouts.workoutId': workoutId }, { 'inprogressWorkouts.$': 1 });
+        if (!currentDaysCompleted) return res.status(404).json({ message: 'Workout not found!' });
+        let daysCompleted = currentWorkout.inprogressWorkouts[0].daysCompleted; 
+        const updateProgress = await User.findOneAndUpdate(
+            { _id: userId, 'inprogressWorkouts.workoutId': workoutId },
+            {
+                $inc: {
+                    'inprogressWorkouts.$.daysCompleted': 1
+                },
+                $set: {
+                    'inprogressWorkouts.$.lastDoneAt': Date.now(),
+                    [`inprogressWorkouts.$.daysProgress.${daysCompleted}`]: score 
+                }
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        )
         const totalDays = await WorkoutModels.findById(workoutId).select('duration');
 
         if (currentDaysCompleted.daysCompleted + 1 === totalDays) {
@@ -177,7 +198,8 @@ const updateWorkoutStatus = async (req, res) => {
                     $push: {
                         completedWorkouts: {
                             workoutId: workoutId,
-                            endedAt: Date.now()
+                            endedAt: Date.now(),
+                            daysProgress: currentDaysCompleted.dayProgress
                         }
                     }
                 },
@@ -201,27 +223,11 @@ const updateWorkoutStatus = async (req, res) => {
                     runValidators: true
                 }
             )
-        } else {
-            const updateProgress = await User.findByIdAndUpdate(
-                { _id: userId, 'inprogressWorkouts.workoutId': workoutId },
-                {
-                    $inc: {
-                        'inprogressWorkouts.$.daysCompleted': 1
-                    },
-                    $set: {
-                        'inprogressWorkouts.$.lastDoneAt': Date.now()
-                    }
-                },
-                {
-                    new: true,
-                    runValidators: true
-                }
-            )
-        }
+        } 
         return res.status(200).json(updateProgress);
     } catch (error) {
         console.error("Error in User.controller.js : updateWorkoutStatus() \n", error)
-        return res.status(400).json({ message: error.message });
+        return res.status(500).json({ message: error.message });
     }
 }
 

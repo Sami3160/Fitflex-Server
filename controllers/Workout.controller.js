@@ -44,7 +44,7 @@ const getOneDayExercise= async (req, res)=>{
 }
 
 const getOneExercise=async (req, res)=>{
-    console.log('ping to getOneExercise');
+    // console.log('ping to getOneExercise');
     
     try {
         const id=req.params.id
@@ -54,7 +54,7 @@ const getOneExercise=async (req, res)=>{
         if(!exercise){
             return res.status(404).json({message:"Exercise not found"})
         }
-        console.log(exercise)
+        // console.log(exercise)
         res.status(200).json({message:"Exercise found",data:exercise})
         
     } catch (error) {

@@ -39,13 +39,15 @@ const userSchema = new Schema({
     completedWorkouts: [{
         workoutId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workout' },
         startedAt: { type: Date },
-        endedAt: { type: Date, default: Date.now }
+        endedAt: { type: Date, default: Date.now },
+        daysProgress: { type: Map, of: Number, default: {} }
     }],
     inprogressWorkouts: [{
         workoutId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workout' },
         startedAt: { type: Date, default: Date.now },
         lastDoneAt: { type: Date, default: Date.now },
-        daysCompleted: { type: Number, default: 0 }
+        daysCompleted: { type: Number, default: 0 },
+        daysProgress: { type: Map, of: Number, default: {} }
     }],
     profileUrl: {
         type: String,
