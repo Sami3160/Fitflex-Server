@@ -69,6 +69,10 @@ const userSchema = new Schema({
     default:
       "https://www.llt.at/wp-content/uploads/2021/11/blank-profile-picture-g77b5d6651-1280-705x705.png",
   },
+  workoutProgressId:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "WorkoutProgress"
+  }
 });
 
 module.exports = mongoose.model("User", userSchema);
