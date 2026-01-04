@@ -1,4 +1,12 @@
+const User = require('../models/User.models')
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcryptjs')
+const WorkoutModels = require('../models/Workout.models')
+const WorkoutProgress=require('../models/WorkoutProgress.models')
+const mongoose = require('mongoose')
+
 // Utility: Check if all days are completed and copy to completedWorkouts
+
 async function checkAndCompleteWorkout(userId, workoutId) {
     const user = await User.findOne({ _id: userId, "inprogressWorkouts.workoutId": workoutId });
     if (!user) return;
@@ -28,11 +36,7 @@ async function checkAndCompleteWorkout(userId, workoutId) {
     });
     await user.save();
 }
-const User = require('../models/User.models')
-const jwt = require('jsonwebtoken')
-const bcrypt = require('bcryptjs')
-const WorkoutModels = require('../models/Workout.models')
-const mongoose = require('mongoose')
+
 
 const createUser = async (req, res) => {
     if (!req.body.email || !req.body.password || !req.body.firstname || !req.body.confirmPassword) {
@@ -192,6 +196,8 @@ const startWorkout = async (req, res) => {
     }
 }
 
+
+
 const updateWorkoutStatus = async (req, res) => {
     const userId = req.user._id;
     const { score = 100, workoutId, currentDay } = req.body;
@@ -261,9 +267,169 @@ const updateWorkoutStatus = async (req, res) => {
       return res.status(500).json({ message: error.message });
     }
   };
-  
+// POST   /workouts/:id/enroll
+const startWorkoutV2 = async (req, res) => {
+    const userId = req.user._id;
+    const workoutId = req.body.workoutId;
+    try {
+        const worukoutProgressDoc=await WorkoutProgress.findOne({user:userId, workoutId:workoutId});
+        if(worukoutProgressDoc){
+            return res.status(200).json({ message: 'Workout already enrolled!', workoutProgress: worukoutProgressDoc });
+        }
+        const newWorkoutProgress = new WorkoutProgress({
+            user: userId,
+            workoutId: workoutId,
+            status: "ENROLLED",
+            startedAt: Date.now(),
+            lastUpdatedAt: Date.now(),
+            highestUnlockedDay: 0,
+            days: []
+        });
+        await newWorkoutProgress.save();
+        return res.status(200).json({ message: 'Workout enrolled successfully!', workoutProgress: newWorkoutProgress });
+    } catch (error) {
+        console.log("Error in User.controller.js : startWorkoutV2() \n", error.message);
+        // Handle duplicate key error specifically (race condition)
+        if (error.code === 11000) {
+            const existingProgress = await WorkoutProgress.findOne({user:userId, workoutId:workoutId});
+            return res.status(200).json({ message: 'Workout already enrolled!', workoutProgress: existingProgress });
+        }
+        return res.status(500).json({ message: error.message });
+    }
+};
 
+// GET    /workouts/:id/progress
+const getWorkoutProgress = async (req, res) => {
+    const userId = req.user._id;
+    const workoutId = req.params.id;
+    try {
+        const workoutProgress = await WorkoutProgress.findOne({ user: userId, workoutId: workoutId });
+        if (!workoutProgress) {
+            return res.status(404).json({ message: 'Workout progress not found!' });
+        }
+        return res.status(200).json(workoutProgress);
+    } catch (error) {
+        console.log("Error in User.controller.js : getWorkoutProgress() \n", error.message);
+        return res.status(500).json({ message: error.message });
+    }
+}
 
+// POST   /workouts/:id/day/:n/exercise/:x/complete
+const workoutCompleteDayExercise = async (req, res) => {
+    const userId = req.user._id;
+    const workoutId = req.params.id;
+    const dayNumber = parseInt(req.params.n);
+    const exerciseNumber = parseInt(req.params.x);
+    const exerciseId = req.body.exerciseId;
+    let totalExercises = req.body.totalExercises || 0;
+
+    try {
+        const workoutProgressDoc=await WorkoutProgress.findOne({user:userId, workoutId:workoutId});
+        const workout = await WorkoutModels.findById(workoutId).select("roadMap");
+        if(!workout || !workout.roadMap || !workout.roadMap[dayNumber - 1]){
+            return res.status(404).json({ message: 'Workout day not found!' });
+        }
+        totalExercises = workout.roadMap[dayNumber - 1].exercises.length;
+        if(!workoutProgressDoc){
+            return res.status(404).json({ message: 'Workout progress not found!' });
+        }
+        if(dayNumber>workoutProgressDoc.highestUnlockedDay+1){
+            return res.status(400).json({ message: 'Day is locked!' });
+        }
+        if(dayNumber>workoutProgressDoc.days.length){
+            // Add new day entry
+            workoutProgressDoc.days.push({
+                dayNumber: dayNumber,
+                status: "INPROGRESS",
+                completePercentage: (1/totalExercises)*100,
+                totalExercises: totalExercises,
+                completedExercises: 1,
+                exercises: [
+                    {
+                        exerciseNumber: exerciseNumber,
+                        exerciseId: exerciseId,
+                        completed: true,
+                        completedAt: Date.now()
+                    }
+                ]
+            });
+            await workoutProgressDoc.save();
+            return res.status(200).json({ message: 'Exercise marked as completed!', workoutProgress: workoutProgressDoc });
+        }else{
+            // Update existing day entry
+            const dayEntry=workoutProgressDoc.days.find(d=>d.dayNumber===dayNumber);
+            if(!dayEntry){
+                return res.status(404).json({ message: 'Day entry not found!' });
+            }
+            const existingExercise=dayEntry.exercises.find(e=>e.exerciseNumber===exerciseNumber);
+            if(existingExercise){
+                return res.status(400).json({ message: 'Exercise already marked as completed!' });
+            }else{
+                dayEntry.exercises.push({
+                    exerciseNumber: exerciseNumber,
+                    exerciseId: exerciseId,
+                    completed: true,
+                    completedAt: Date.now()
+                });
+                dayEntry.completedExercises += 1;
+                dayEntry.completePercentage = (dayEntry.completedExercises / dayEntry.totalExercises) * 100;
+                // If all exercises completed, mark day as COMPLETE
+                if(dayEntry.completePercentage>=70){
+                    dayEntry.status = "COMPLETE";
+                    // Update highestUnlockedDay if needed
+                    if(dayNumber===workoutProgressDoc.highestUnlockedDay+1){
+                        workoutProgressDoc.highestUnlockedDay = dayNumber;
+                    }
+                }
+            }
+            await workoutProgressDoc.save();
+            return res.status(200).json({ message: 'Exercise marked as completed!', workoutProgress: workoutProgressDoc });
+        }
+    } catch (error) {
+        console.log("Error in User.controller.js : wourkoutCompleteDayExercise() \n", error.message);
+        return res.status(500).json({ message: error.message });
+    }
+}
+// POST   /workouts/:id/day/:n/complete         (when user exits the workout for the day update status)
+const workoutCompleteDay = async (req, res) => {
+    const userId = req.user._id;
+    const workoutId = req.params.id;
+    const dayNumber = parseInt(req.params.n);
+    try {
+        const workoutProgressDoc=await WorkoutProgress.findOne({user:userId, workoutId:workoutId});
+        const workoutRoadmap=await WorkoutModels.findById(workoutId).select("roadmap");
+        if(!workoutProgressDoc){
+            return res.status(404).json({ message: 'Workout progress not found!' });
+        }
+        const dayEntry=workoutProgressDoc.days.find(d=>d.dayNumber===dayNumber);
+        if(!dayEntry){
+            return res.status(404).json({ message: 'Day entry not found!' });
+        }
+        if(dayEntry.status!="COMPLETE"){
+            return res.status(400).json({ message: 'Day not completed yet!' });
+        }
+        if(dayNumber==workoutRoadmap.length){
+            workoutProgressDoc.status="COMPLETED";
+            workoutProgressDoc.completedAt=Date.now();
+            await workoutProgressDoc.save();
+        }else{
+            workoutProgressDoc.status="IN_PROGRESS";
+            await workoutProgressDoc.save();
+        }
+        workoutProgressDoc.lastUpdatedAt=Date.now();
+        return res.status(200).json({ message: 'Day progress saved!', workoutProgress: workoutProgressDoc });
+    } catch (error) {
+        console.log("Error in User.controller.js : workoutCompleteDay() \n", error.message);
+        return res.status(500).json({ message: error.message });
+    }
+}
+// POST   /workouts/:id/abandon
+
+const passwordReset = async (req, res) => {
+    const userId = req.user._id;
+    const email=await User.findById(userId).select("email");
+    // will do this later
+}
 
 module.exports = {
     createUser,
@@ -271,5 +437,9 @@ module.exports = {
     getUserProfile,
     updateUser,
     updateWorkoutStatus,
-    startWorkout
+    startWorkout,
+    startWorkoutV2,
+    getWorkoutProgress,
+    workoutCompleteDayExercise,
+    workoutCompleteDay
 }
