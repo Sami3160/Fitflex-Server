@@ -5,8 +5,8 @@ const { handleFileUpload } = require('../controllers/Cloudinary.controller')
 const { getWorkoutsGroupByCategory, getOneDayExercise, getOneExercise } = require('../controllers/Workout.controller')
 const FileUpload = require('../middlewares/multer')
 const fs=require('fs')
-router.get('/workouts', getWorkoutsGroupByCategory)
-router.get('/workouts/:workoutId/day/:day', getOneDayExercise)
+router.get('/', getWorkoutsGroupByCategory)
+router.get('/:workoutId/day/:day', getOneDayExercise)
 router.get('/exercise/:id', getOneExercise)
 router.post('/upload',FileUpload, (req, res, next) => {
     const {secret, folder, workoutId} = req.body

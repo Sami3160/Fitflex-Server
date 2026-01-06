@@ -33,14 +33,15 @@ const getOneDayExercise= async (req, res)=>{
     try {
         const workoutId=req.params.workoutId
         const day=req.params.day
-        const workout=await Workout.findOne({ _id:workoutId, 'roadMap.day':day}, { 'roadMap.$': 1 })
-        res.status(200).json({message:"Exercise found",data:workout})
+        const workout=await Workout.findOne({ _id:workoutId, 'roadMap.day':day}, { 'roadMap.$': 1 }).populate('roadMap.exercises.exerciseData', 'instructions tips imageUrl videoUrl focusArea _id')
+        res.status(200).json({message:"Exercise found",data:workout.roadMap[0].exercises})
     } catch (error) {
         console.error("Error in Workout.controller.js : getOneDayExercise() \n", error.message)
         return res.status(500).json({
             message: "Internal server error"
         })
     }
+    
 }
 
 const getOneExercise=async (req, res)=>{
